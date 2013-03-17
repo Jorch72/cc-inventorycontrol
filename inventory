@@ -80,3 +80,29 @@ local inventoryTest = {
 	end,
 }
 
+local euPowerTest = {
+	full = function(coord)
+		local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
+		if euStorageData.Stored >= euStorageData.Capacity then
+			return true
+		else
+			return false
+		end
+	end,
+	partial = function(coord)
+		local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
+		if euStorageData.Stored < euStorageData.Capacity and euStorageData.Stored > euStorageData.Output then
+			return true
+		else
+			return false
+		end
+	end,
+	empty = function(coord)
+		local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
+		if euStorageData.Stored < euStorageData.Output then
+			return true
+		else
+			return false
+		end
+	end,
+}
