@@ -2,8 +2,19 @@ os.loadAPI("ocs/apis/sensor")
 
 local invSensor = nil
 local tankSensor = nil
+local outputTable = {}
 
-for _,side in pairs(rs.getSides()) do
+for _, side in pairs(rs.getSides()) do
+	outputTable[side] = {raw = 0}
+	for k, v in pairs(colors) do
+		if type(k) == "string" and type (v) == "number" then
+			--catch all the color aliases and create entries for them
+			outputTable[side][k] = 0
+		end
+	end
+end
+
+for _, side in pairs(rs.getSides()) do
 	if peripheral.getType(side) == "sensor" then
 		if sensor.call(side, "getSensorName") == "openccsensors.item.inventorysensor" then
 			invSensor = side
@@ -106,3 +117,33 @@ local euPowerTest = {
 		end
 	end,
 }
+
+local function setBundledOutput(side, color, state)
+	if state then
+		outputTable[side][color] = outputTable[side][color] + 1
+		if not colors.test(rs.getBundledOutput(side), colors[color]) then
+			rs.setBundledOutput(side, colors.combine(rs.getBundledOutput(side), colors[color]))
+		end
+	else
+		outputTable[side][color] = outputTable[side][color] - 1
+		if outputTable[side][color] == 0 then
+			if colors.test(rs.getBundledOutput(side), colors[color]) then
+				rs.setBundledOutput(side, colors.subtract(rs.getBundledOutput(side), colors[color]))
+			end
+		end
+	end
+end
+
+local function setRedstoneOutput(side, state)
+	if state then
+		outputTable[side].raw = outputTable[side].raw + 1
+		if not rs.getOutput(side) then
+			rs.setOutput(side, true)
+		end
+	else
+		outputTable[side].raw = outputTable[side].raw - 1
+		if outputTable[side].raw == 0 then
+			rs.setOutput(side, false)
+		end
+	end
+end
