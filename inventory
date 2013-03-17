@@ -1,0 +1,82 @@
+os.loadAPI("ocs/apis/sensor")
+
+local invSensor = nil
+local tankSensor = nil
+
+for _,side in pairs(rs.getSides()) do
+	if peripheral.getType(side) == "sensor" then
+		if sensor.call(side, "getSensorName") == "openccsensors.item.inventorysensor" then
+			invSensor = side
+		elseif sensor.call(side, "getSensorName") == "openccsensors.item.tanksensor" then
+			tankSensor = side
+		end
+	end
+	if invSensor and tankSensor then break end
+end
+
+local tankTest = {
+	full = function(coord)
+		local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
+		if tankData.Amount >= tankData.Capacity then
+			return true
+		else
+			return false
+		end
+	end,
+	partial = function(coord)
+		local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
+		if tankData.Amount < tankData.Capacity and tankData.Amount > 0 then
+			return true
+		else
+			return false
+		end
+	end,
+	empty = function(coord)
+		local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
+		if tankData.Amount <= 0 then
+			return true
+		else
+			return false
+		end
+	end,
+}
+
+local inventoryTest = {
+	full = function(coord)
+		local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
+		for _, slot in pairs(inventoryData) do
+			if slot.Size < slot.MaxStack then
+				return false
+			end
+		end
+		return true
+	end,
+	partial = function(coord)
+		local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
+		local totalSize = 0
+		local totalMax = 0
+		for _, slot in pairs(inventoryData) do
+			if slot.Size < slot.MaxStack and slot.Size > 0 then
+				return true
+			end
+			totalSize = totalSize + slot.Size
+			totalMax = totalMax + slot.MaxStack
+		end
+		--catch the all slot are empty or full, but not all empty or all full case.
+		if totalSize < totalMax and totalSize > 0 then
+			return true
+		else
+			return false
+		end
+	end,
+	empty = function(coord)
+		local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
+		for _, slot in pairs(inventoryData) do
+			if slot.Size > 0 then
+				return false
+			end
+		end
+		return true
+	end,
+}
+
