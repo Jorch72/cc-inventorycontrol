@@ -2,6 +2,7 @@ os.loadAPI("ocs/apis/sensor")
 
 local invSensor = nil
 local tankSensor = nil
+local euSensor = nil
 local outputTable = {}
 
 for _, side in pairs(rs.getSides()) do
@@ -20,6 +21,8 @@ for _, side in pairs(rs.getSides()) do
 			invSensor = side
 		elseif sensor.call(side, "getSensorName") == "openccsensors.item.tanksensor" then
 			tankSensor = side
+		elseif sensor.call(side, "getSensorName") == "openccsensors.item.industrialcraftsensor" then
+			euSensor = side
 		end
 	end
 	if invSensor and tankSensor then break end
