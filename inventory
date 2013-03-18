@@ -9,9 +9,27 @@ local pulseTable = {}
 
 --load configuration file
 local handle = io.open(".ocsInvCntrlConfig", "r")
+local entryTable
 if handle then
 	for line in handle:lines() do
-
+		if line == "or" or line == "and" then
+			if entryTable then
+				table.insert(configurationTable, entryTable)
+			end
+			entryTable = {conditionType = line, conditions = {}, outputs = {}}
+		elseif string.match(line, "(%a+):") == "input" then
+			condTable = {}
+			condTable.type, condTable.state, condTable.location = string.match(line, "%a+:(%a+),(%a+),(.+)")
+			table.insert(entryTable.conditions, condTable)
+		elseif string.match(line, "(%a+):") == "output" then
+			outTable = {}
+			outTable.type, outTable.side, outTable.color, outTable.duration, outTable.count, outTable.delay = string.match(line, "%a+:(%a+),(%a+),(%a+),(.-),(%d+),(.-)")
+			outTable.duration, outTable.count, outTable.delay = tonumber(outTable.duration), tonumber(outTable.count), tonumber(outTable.delay)
+			table.insert(entryTable.outputs, outTable)
+		end
+	end
+	handle:close()
+end
 
 function saveConfig()
 	--do it
@@ -41,8 +59,8 @@ for _, side in pairs(rs.getSides()) do
 end
 
 local testConditions = {
-	tank = {
-		full = function(coord)
+	Tank = {
+		Full = function(coord)
 			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
 			if tankData.Amount >= tankData.Capacity then
 				return true
@@ -50,7 +68,7 @@ local testConditions = {
 				return false
 			end
 		end,
-		partial = function(coord)
+		Partial = function(coord)
 			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
 			if tankData.Amount < tankData.Capacity and tankData.Amount > 0 then
 				return true
@@ -58,7 +76,7 @@ local testConditions = {
 				return false
 			end
 		end,
-		empty = function(coord)
+		Empty = function(coord)
 			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
 			if tankData.Amount <= 0 then
 				return true
@@ -67,8 +85,8 @@ local testConditions = {
 			end
 		end,
 	},
-	inventory = {
-		full = function(coord)
+	Inventory = {
+		Full = function(coord)
 			local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
 			for _, slot in pairs(inventoryData) do
 				if slot.Size < slot.MaxStack then
@@ -77,7 +95,7 @@ local testConditions = {
 			end
 			return true
 		end,
-		partial = function(coord)
+		Partial = function(coord)
 			local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
 			local totalSize = 0
 			local totalMax = 0
@@ -95,7 +113,7 @@ local testConditions = {
 				return false
 			end
 		end,
-		empty = function(coord)
+		Empty = function(coord)
 			local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
 			for _, slot in pairs(inventoryData) do
 				if slot.Size > 0 then
@@ -105,8 +123,8 @@ local testConditions = {
 			return true
 		end,
 	},
-	euStorage = {
-		full = function(coord)
+	["EU Storage"] = {
+		Full = function(coord)
 			local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
 			if euStorageData.Stored >= euStorageData.Capacity then
 				return true
@@ -114,7 +132,7 @@ local testConditions = {
 				return false
 			end
 		end,
-		partial = function(coord)
+		Partial = function(coord)
 			local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
 			if euStorageData.Stored < euStorageData.Capacity and euStorageData.Stored > euStorageData.Output then
 				return true
@@ -122,7 +140,7 @@ local testConditions = {
 				return false
 			end
 		end,
-		empty = function(coord)
+		Empty = function(coord)
 			local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
 			if euStorageData.Stored < euStorageData.Output then
 				return true
@@ -131,8 +149,8 @@ local testConditions = {
 			end
 		end,
 	},
-	redstone = {
-		high = function(side_color)
+	Redstone = {
+		High = function(side_color)
 			local side, color = string.match(side_color, "(%a+)_(%a+)")
 			if color == "redstone" then
 				return rs.getInput(side)
@@ -140,7 +158,7 @@ local testConditions = {
 				return rs.testBundledInput(side, colors[color])
 			end
 		end,
-		low = function(side_color)
+		Low = function(side_color)
 			local side, color = string.match(side_color, "(%a+)_(%a+)")
 			if color == "redstone" then
 				return not rs.getInput(side)
