@@ -5,7 +5,7 @@ local tankSensor = nil
 local outputTable = {}
 
 for _, side in pairs(rs.getSides()) do
-	outputTable[side] = {raw = 0}
+	outputTable[side] = {redstone = 0}
 	for k, v in pairs(colors) do
 		if type(k) == "string" and type (v) == "number" then
 			--catch all the color aliases and create entries for them
@@ -25,125 +25,160 @@ for _, side in pairs(rs.getSides()) do
 	if invSensor and tankSensor then break end
 end
 
-local tankTest = {
-	full = function(coord)
-		local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
-		if tankData.Amount >= tankData.Capacity then
-			return true
-		else
-			return false
-		end
-	end,
-	partial = function(coord)
-		local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
-		if tankData.Amount < tankData.Capacity and tankData.Amount > 0 then
-			return true
-		else
-			return false
-		end
-	end,
-	empty = function(coord)
-		local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
-		if tankData.Amount <= 0 then
-			return true
-		else
-			return false
-		end
-	end,
-}
-
-local inventoryTest = {
-	full = function(coord)
-		local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
-		for _, slot in pairs(inventoryData) do
-			if slot.Size < slot.MaxStack then
-				return false
-			end
-		end
-		return true
-	end,
-	partial = function(coord)
-		local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
-		local totalSize = 0
-		local totalMax = 0
-		for _, slot in pairs(inventoryData) do
-			if slot.Size < slot.MaxStack and slot.Size > 0 then
+local testConditions = {
+	tank = {
+		full = function(coord)
+			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
+			if tankData.Amount >= tankData.Capacity then
 				return true
-			end
-			totalSize = totalSize + slot.Size
-			totalMax = totalMax + slot.MaxStack
-		end
-		--catch the all slot are empty or full, but not all empty or all full case.
-		if totalSize < totalMax and totalSize > 0 then
-			return true
-		else
-			return false
-		end
-	end,
-	empty = function(coord)
-		local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
-		for _, slot in pairs(inventoryData) do
-			if slot.Size > 0 then
+			else
 				return false
 			end
-		end
-		return true
-	end,
+		end,
+		partial = function(coord)
+			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
+			if tankData.Amount < tankData.Capacity and tankData.Amount > 0 then
+				return true
+			else
+				return false
+			end
+		end,
+		empty = function(coord)
+			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
+			if tankData.Amount <= 0 then
+				return true
+			else
+				return false
+			end
+		end,
+	},
+	inventory = {
+		full = function(coord)
+			local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
+			for _, slot in pairs(inventoryData) do
+				if slot.Size < slot.MaxStack then
+					return false
+				end
+			end
+			return true
+		end,
+		partial = function(coord)
+			local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
+			local totalSize = 0
+			local totalMax = 0
+			for _, slot in pairs(inventoryData) do
+				if slot.Size < slot.MaxStack and slot.Size > 0 then
+					return true
+				end
+				totalSize = totalSize + slot.Size
+				totalMax = totalMax + slot.MaxStack
+			end
+			--catch the all slot are empty or full, but not all empty or all full case.
+			if totalSize < totalMax and totalSize > 0 then
+				return true
+			else
+				return false
+			end
+		end,
+		empty = function(coord)
+			local inventoryData = sensor.call(invSensor, "getTargetDetails", coord)
+			for _, slot in pairs(inventoryData) do
+				if slot.Size > 0 then
+					return false
+				end
+			end
+			return true
+		end,
+	},
+	euStorage = {
+		full = function(coord)
+			local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
+			if euStorageData.Stored >= euStorageData.Capacity then
+				return true
+			else
+				return false
+			end
+		end,
+		partial = function(coord)
+			local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
+			if euStorageData.Stored < euStorageData.Capacity and euStorageData.Stored > euStorageData.Output then
+				return true
+			else
+				return false
+			end
+		end,
+		empty = function(coord)
+			local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
+			if euStorageData.Stored < euStorageData.Output then
+				return true
+			else
+				return false
+			end
+		end,
+	},
 }
 
-local euPowerTest = {
-	full = function(coord)
-		local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
-		if euStorageData.Stored >= euStorageData.Capacity then
-			return true
-		else
-			return false
-		end
-	end,
-	partial = function(coord)
-		local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
-		if euStorageData.Stored < euStorageData.Capacity and euStorageData.Stored > euStorageData.Output then
-			return true
-		else
-			return false
-		end
-	end,
-	empty = function(coord)
-		local euStorageData = sensor.call(euSensor, "getTargetDetails", coord)
-		if euStorageData.Stored < euStorageData.Output then
-			return true
-		else
-			return false
-		end
-	end,
-}
-
-local function setBundledOutput(side, color, state)
+local function setOutput(side, color, state)
 	if state then
 		outputTable[side][color] = outputTable[side][color] + 1
-		if not colors.test(rs.getBundledOutput(side), colors[color]) then
-			rs.setBundledOutput(side, colors.combine(rs.getBundledOutput(side), colors[color]))
+		if color == "redstone" then
+			if not rs.getOutput(side) then
+				rs.setOutput(side, true)
+			end
+		else
+			if not colors.test(rs.getBundledOutput(side), colors[color]) then
+				rs.setBundledOutput(side, colors.combine(rs.getBundledOutput(side), colors[color]))
+			end
 		end
 	else
 		outputTable[side][color] = outputTable[side][color] - 1
 		if outputTable[side][color] == 0 then
-			if colors.test(rs.getBundledOutput(side), colors[color]) then
-				rs.setBundledOutput(side, colors.subtract(rs.getBundledOutput(side), colors[color]))
+			if color == "redstone" then
+				rs.setOutput(side, false)
+			else
+				if colors.test(rs.getBundledOutput(side), colors[color]) then
+					rs.setBundledOutput(side, colors.subtract(rs.getBundledOutput(side), colors[color]))
+				end
 			end
 		end
 	end
 end
 
-local function setRedstoneOutput(side, state)
-	if state then
-		outputTable[side].raw = outputTable[side].raw + 1
-		if not rs.getOutput(side) then
-			rs.setOutput(side, true)
+local configurationTable = {}
+
+local updateTime, updateTimer = 5, os.startTimer(0)
+
+while true do
+	event = {os.pullEvent()}
+	if event[1] == "timer" and event[2] == updateTimer then
+		for eNum, eInfo in pairs(configurationTable) do
+			--iterate the entry's conditions
+			local condTrueCount, condFalseCount = 0, 0
+			for cNum, cInfo in pairs(eInfo.conditions) do
+				if testConditions[cInfo.type][cInfo.state](cInfo.location) then
+					condTrueCount = condTrueCount + 1
+				else
+					condFalseCount = condFalseCount + 1
+				end
+			end
+			local setState = nil
+			if ((eInfo.conditionType == "or" and condTrueCount > 0) or (eInfo.conditionType == "and" and condFalseCount == 0) and eInfo.lastState == false then
+				--condition is true and needs to be set.
+				setState = true
+			elseif ((eInfo.conditionType == "or" and condTrueCount == 0) or (eInfo.conditionType == "and" and condFalseCount > 0) and eInfo.lastState == true then
+				--condition is false and needs to be set.
+				setState = false
+			end
+			if setState ~= nil then
+				for oNum, oInfo in pairs(eInfo.outputs) do
+					if oInfo.state ~= "pulse" then
+						setOutput(oInfo.side, oInfo.color, ((oInfo.state == "high") == setState))
+					else
+						--pulsing output
+					end
+				end
+			end
 		end
-	else
-		outputTable[side].raw = outputTable[side].raw - 1
-		if outputTable[side].raw == 0 then
-			rs.setOutput(side, false)
-		end
+		updateTimer = os.startTimer(updateTime)
 	end
 end
