@@ -4,6 +4,18 @@ local invSensor = nil
 local tankSensor = nil
 local euSensor = nil
 local outputTable = {}
+local configurationTable = {}
+local pulseTable = {}
+
+--load configuration file
+local handle = io.open(".ocsInvCntrlConfig", "r")
+if handle then
+	for line in handle:lines() do
+
+
+function saveConfig()
+	--do it
+end
 
 for _, side in pairs(rs.getSides()) do
 	outputTable[side] = {redstone = 0}
@@ -119,6 +131,24 @@ local testConditions = {
 			end
 		end,
 	},
+	redstone = {
+		high = function(side_color)
+			local side, color = string.match(side_color, "(%a+)_(%a+)")
+			if color == "redstone" then
+				return rs.getInput(side)
+			else
+				return rs.testBundledInput(side, colors[color])
+			end
+		end,
+		low = function(side_color)
+			local side, color = string.match(side_color, "(%a+)_(%a+)")
+			if color == "redstone" then
+				return not rs.getInput(side)
+			else
+				return not rs.testBundledInput(side, colors[color])
+			end
+		end,
+	},
 }
 
 local function setOutput(side, color, state)
@@ -146,10 +176,6 @@ local function setOutput(side, color, state)
 		end
 	end
 end
-
-local configurationTable = {}
-
-local pulseTable = {}
 
 local function setPulsing(info, state)
 	if state then
