@@ -146,6 +146,35 @@ end
 
 local configurationTable = {}
 
+local pulseTable = {}
+
+local function setPulsing(info, state)
+	if state then
+		--add the entry to the pulse table
+		pulseEntry = {
+			side = info.side
+			color = info.color
+			duration = info.duration
+			count = info.count
+			delay = info.delay
+			timer = os.startTimer(0)
+			pulseState = false
+			handle = info
+		}
+		table.insert(pulseTable, pulseEntry)
+	else
+		for i = 1, #pulseTable do
+			if pulseTable[i].handle == info then
+				if pulseState then
+					setOutput(info.side, info.color, false)
+				end
+				table.remove(pulseTable, i)
+				break
+			end
+		end
+	end
+end
+
 local updateTime, updateTimer = 5, os.startTimer(0)
 
 while true do
@@ -174,11 +203,30 @@ while true do
 					if oInfo.state ~= "pulse" then
 						setOutput(oInfo.side, oInfo.color, ((oInfo.state == "high") == setState))
 					else
-						--pulsing output
+						setPulsing(oInfo, setState))
 					end
 				end
+				setState = nil
 			end
 		end
 		updateTimer = os.startTimer(updateTime)
+	elseif event[1] == "timer" then
+		for pNum, pInfo in pairs(pulseTable) do
+			if event[2] == pInfo.timer then
+				if pInfo.pulseState then
+					pInfo.count = pInfo.count - 1
+					setOutput(pInfo.side, pInfo.color, false)
+					if pInfo.count > 0 then
+						pInfo.timer = os.startTimer(pInfo.delay)
+					else
+						table.remove(pulseTable, pNum)
+					end
+				else
+					setOutput(pInfo.side, pInfo.color, true)
+					pInfo.timer = os.startTimer(pInfo.duration)
+				end
+				break
+			end
+		end
 	end
 end
