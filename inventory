@@ -331,7 +331,64 @@ local function setPulsing(info, state)
 	end
 end
 
+local function draw(offset)
+	local maxX, maxY = term.getSize()
+	for i = 1, maxY do
+		local currentEntry = displayTable[math.floor(i + offset - 1 / 2) + 1]
+		if currentEntry.configSet % 2 == 0 then
+			term.setBackgroundColor(colors.lightGray)
+		else
+			term.setBackgroundColor(colors.gray)
+		end
+		term.setCursorPos(1, i)
+		term.clearLine()
+		if i + offset - 1 % 2 == 0 then --draw the actual entry.
+			term.setCursorPos(2, i)
+			if currentEntry.entryType == "input" then
+				term.setBackgroundColor(colors.black)
+				term.setTextColor(colors.white)
+				term.write(" "..optionsTable.inputs[currentEntry.inputNumber].name..string.rep(" ", 10 - string.len(optionsTable.inputs[currentEntry.inputNumber].name))) --pre-subtract the 1 we would have added to the length of the name, so 10.
+				term.setCursorPos(14, i)
+				term.write(" "..optionsTable.inputs[currentEntry.inputNumber].states[currentEntry.inputState]..string.rep(" ", 8 - string.len(optionsTable.inputs[currentEntry.inputNumber].states[currentEntry.inputState])))
+				term.setCursorPos(24, i)
+				if optionsTable.inputs[currentEntry.inputNumber].name == "Redstone" then
+					term.write(" "..optionsTable.inputs[currentEntry.inputNumber].sides[currentEntry.inputSide]..string.rep(" ", 7 - string.len(optionsTable.inputs[currentEntry.inputNumber].sides[currentEntry.inputSide])))
+					term.setCursorPos(33, i)
+					term.setBackgroundColor(colors[optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor]])
+					term.setTextColor(colors[textColors[optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor]]])
+					term.write(" "..optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor]..string.rep(" ", 10 - string.len(optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor])))
+				else
+					term.write(" "..optionsTable.inputs[currentEntry.inputNumber].targets[currentEntry.inputLocation]..string.rep(" ", 7 - string.len(optionsTable.inputs[currentEntry.inputNumber].targets[currentEntry.inputLocation])))
+				end
+			else
+				term.setBackgroundColor(colors.black)
+				term.setTextColor(colors.white)
+				term.write(" "..optionsTable.outputs.sides[currentEntry.outputSide]..string.rep(" ", 7 - string.len(optionsTable.outputs.sides[currentEntry.outputSide])))
+				term.setCursorPos(11, i)
+				term.setBackgroundColor(colors[optionsTable.outputs.colors[currentEntry.outputColor]])
+				term.setTextColor(colors[textColors[optionsTable.outputs.colors[currentEntry.outputColor]]])
+				term.write(" "..optionsTable.outputs.colors[currentEntry.outputColor]..string.rep(" ", 10 - string.len(optionsTable.outputs.colors[currentEntry.outputColor])))
+				term.setCursorPos(23, i)
+				term.setBackgroundColor(colors.black)
+				term.setTextColor(colors.white)
+				term.write(" "..optionsTable.outputs.states[currentEntry.outputState]..string.rep(" ", 6 - string.len(optionsTable.outputs.states[currentEntry.outputState])))
+				if optionsTable.outputs.states[currentEntry.outputState] == "Pulse" then
+					term.setCursorPos(31, i)
+					term.write(" "..currentEntry.pulseDuration..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseDuration))))
+					term.setCursorPos(38, i)
+					term.write(" "..currentEntry.pulseCount..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseCount))))
+					term.setCursorPos(45, i)
+					term.write(" "..currentEntry.pulseDelay..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseDelay))))
+				end
+			end
+		end
+	end
+end
+
+local offset = 0
 local updateTime, updateTimer = 5, os.startTimer(0)
+
+draw(offset)
 
 while true do
 	event = {os.pullEvent()}
