@@ -6,29 +6,23 @@ local euSensor = nil
 local outputTable = {}
 local configurationTable = {}
 local pulseTable = {}
+local displayTable = {}
 
---load configuration file
-local handle = io.open(".ocsInvCntrlConfig", "r")
-local entryTable
-if handle then
-	for line in handle:lines() do
-		if line == "or" or line == "and" then
-			if entryTable then
-				table.insert(configurationTable, entryTable)
-			end
-			entryTable = {conditionType = line, conditions = {}, outputs = {}}
-		elseif string.match(line, "(%a+):") == "input" then
-			condTable = {}
-			condTable.type, condTable.state, condTable.location = string.match(line, "%a+:(%a+),(%a+),(.+)")
-			table.insert(entryTable.conditions, condTable)
-		elseif string.match(line, "(%a+):") == "output" then
-			outTable = {}
-			outTable.type, outTable.side, outTable.color, outTable.duration, outTable.count, outTable.delay = string.match(line, "%a+:(%a+),(%a+),(%a+),(.-),(%d+),(.-)")
-			outTable.duration, outTable.count, outTable.delay = tonumber(outTable.duration), tonumber(outTable.count), tonumber(outTable.delay)
-			table.insert(entryTable.outputs, outTable)
-		end
+local colorTable = {"redstone"}
+for k, v in pairs(colors) do
+	if type(k) == "string" and type(v) == "number" then
+		table.insert(colorTable, k)
 	end
-	handle:close()
+end
+
+local sideLookupTable = {}
+for k, v in pairs(rs.getSides()) do
+	sideLookupTable[v] = k
+end
+
+local colorLookupTable = {}
+for k, v in pairs(colorTable) do
+	colorLookupTable[v] = k
 end
 
 function saveConfig()
@@ -55,7 +49,122 @@ for _, side in pairs(rs.getSides()) do
 			euSensor = side
 		end
 	end
-	if invSensor and tankSensor then break end
+	if invSensor and tankSensor and euSensor then break end
+end
+
+local textColors = {
+	redstone = "white",
+	white = "black",
+	orange = "black",
+	magenta = "white",
+	lightBlue = "black",
+	yellow = "black",
+	lime = "black",
+	pink = "black",
+	gray = "white",
+	lightGray = "black",
+	cyan = "white",
+	purple = "white",
+	blue = "white",
+	brown = "white",
+	green = "white",
+	red = "white",
+	black = "white"
+}
+
+local optionsTable = {
+	inputs = {
+		[1] = {
+			name = "Redstone",
+			states = {"High", "Low"},
+			colors = colorTable,
+			sides = rs.getSides()
+		},
+	},
+	outputs = {
+		colors = colorTable,
+		states = {"High", "Low", "Pulse"},
+		sides = rs.getSides()
+	},
+}
+if invSensor then
+	local targets = sensor.call(invSensor, "getTargets")
+	local targetTable = {}
+	for k, v in pairs(targets) do
+		table.insert(targetTable, k)
+	end
+	table.insert(optionsTable.inputs, {name = "Inventory", sensor = invSensor, targets = targetTable, states = {"Full", "Partial", "Empty"}})
+end
+if tankSensor then
+	local targets = sensor.call(tankSensor, "getTargets")
+	local targetTable = {}
+	for k, v in pairs(targets) do
+		table.insert(targetTable, k)
+	end
+	table.insert(optionsTable.inputs, {name = "Tank", sensor = tankSensor, targets = targetTable, states = {"Full", "Partial", "Empty"}})
+end
+if euSensor then
+	local targets = sensor.call(euSensor, "getTargets")
+	local targetTable = {}
+	for k, v in pairs(targets) do
+		table.insert(targetTable, k)
+	end
+	table.insert(optionsTable.inputs, {name = "EU Storage", sensor = tankSensor, targets = targetTable, states = {"Full", "Partial", "Empty"}})
+end
+
+--load configuration file (after sides set up so translation for display table can work.)
+local handle = io.open(".ocsInvCntrlConfig", "r")
+local entryTable
+if handle then
+	local configSet = 1
+	local entry = 1
+	for line in handle:lines() do
+		if line == "or" or line == "and" then
+			if entryTable then
+				table.insert(configurationTable, entryTable)
+				configSet = configSet + 1
+			end
+			entryTable = {conditionType = line, conditions = {}, outputs = {}}
+		elseif string.match(line, "(%a+):") == "input" then
+			local condTable = {}
+			local dispEntry = {entryType = "input", configSet = configSet, configEntry = entry}
+			condTable.type, condTable.state, condTable.location = string.match(line, "%a+:(%a+),(%a+),(.+)")
+			for i=1, #optionsTable.inputs do
+				if optionsTable.inputs[i].name == condTable.type then
+					dispEntry.inputNumber = i
+					if condTable.type ~= "Redstone" then
+						for k, v in pairs(optionsTable.inputs[i].targets) do
+							if condTable.location == v then
+								dispEntry.inputLocation = k
+							end
+						end
+					else
+						dispEntry.inputSide, dispEntry.inputColor = string.match(condTable.location, "(%a+)_(%a+)")
+						dispEntry.inputSide, dispEntry.inputColor = sideLookupTable[dispEntry.inputSide], colorLookupTable[dispEntry.inputColor]
+					end
+					for k, v in pairs(optionsTable.inputs[i].states) do
+						if condTable.state == v then
+							dispEntry.inputState = k
+						end
+					end
+					table.insert(displayTable, dispEntry)
+					break
+				end
+			end
+			table.insert(entryTable.conditions, condTable)
+			entry = entry + 1
+		elseif string.match(line, "(%a+):") == "output" then
+			local outTable = {}
+			local dispEntry = {entryType = "output", configSet = configSet, configEntry = entry}
+			outTable.type, outTable.side, outTable.color, outTable.state, outTable.duration, outTable.count, outTable.delay = string.match(line, "%a+:(%a+),(%a+),(%a+),(%a+),(.-),(%d+),(.-)")
+			outTable.duration, outTable.count, outTable.delay = tonumber(outTable.duration), tonumber(outTable.count), tonumber(outTable.delay)
+			dispEntry.outputSide, dispEntry.outputColor, dispEntry.pulseDuration, dispEntry.pulseCount, dispEntry.pulseDelay = sideLookupTable[outTable.side], colorLookupTable[outTable.color], outTable.duration, outTable.count, outTable.delay
+			table.insert(entryTable.outputs, outTable)
+			table.insert(displayTable, dispEntry)
+			entry = entry + 1
+		end
+	end
+	handle:close()
 end
 
 local testConditions = {
