@@ -331,6 +331,15 @@ local function setPulsing(info, state)
 	end
 end
 
+local function updateConfigEntry(configGroup, groupEntry, key, value)
+	if groupEntry > #configurationTable[configGroup].conditions then
+		groupEntry = groupEntry - #configTable[configGroup].conditions
+		configurationTable[configGroup].outputs[configEntry][key] = value
+	else
+		configurationTable[configGroup].conditions[configEntry][key] = value
+	end
+end
+
 local function draw(offset)
 	local maxX, maxY = term.getSize()
 	for i = 1, maxY do
@@ -347,38 +356,38 @@ local function draw(offset)
 			if currentEntry.entryType == "input" then
 				term.setBackgroundColor(colors.black)
 				term.setTextColor(colors.white)
-				term.write(" "..optionsTable.inputs[currentEntry.inputNumber].name..string.rep(" ", 10 - string.len(optionsTable.inputs[currentEntry.inputNumber].name))) --pre-subtract the 1 we would have added to the length of the name, so 10.
-				term.setCursorPos(14, i)
+				term.write(" "..optionsTable.inputs[currentEntry.inputNumber].name..string.rep(" ", 11 - string.len(optionsTable.inputs[currentEntry.inputNumber].name))) --pre-subtract the 1 we would have added to the length of the name, so 11.
+				term.setCursorPos((term.getCursorPos()) + 1, i)
 				term.write(" "..optionsTable.inputs[currentEntry.inputNumber].states[currentEntry.inputState]..string.rep(" ", 8 - string.len(optionsTable.inputs[currentEntry.inputNumber].states[currentEntry.inputState])))
-				term.setCursorPos(24, i)
+				term.setCursorPos((term.getCursorPos()) + 1, i)
 				if optionsTable.inputs[currentEntry.inputNumber].name == "Redstone" then
 					term.write(" "..optionsTable.inputs[currentEntry.inputNumber].sides[currentEntry.inputSide]..string.rep(" ", 7 - string.len(optionsTable.inputs[currentEntry.inputNumber].sides[currentEntry.inputSide])))
-					term.setCursorPos(33, i)
+					term.setCursorPos((term.getCursorPos()) + 1, i)
 					term.setBackgroundColor(colors[optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor]])
 					term.setTextColor(colors[textColors[optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor]]])
 					term.write(" "..optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor]..string.rep(" ", 10 - string.len(optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor])))
 				else
-					term.write(" "..optionsTable.inputs[currentEntry.inputNumber].targets[currentEntry.inputLocation]..string.rep(" ", 7 - string.len(optionsTable.inputs[currentEntry.inputNumber].targets[currentEntry.inputLocation])))
+					term.write(" "..optionsTable.inputs[currentEntry.inputNumber].targets[currentEntry.inputLocation]..string.rep(" ", 9 - string.len(optionsTable.inputs[currentEntry.inputNumber].targets[currentEntry.inputLocation])))
 				end
 			else
 				term.setBackgroundColor(colors.black)
 				term.setTextColor(colors.white)
 				term.write(" "..optionsTable.outputs.sides[currentEntry.outputSide]..string.rep(" ", 7 - string.len(optionsTable.outputs.sides[currentEntry.outputSide])))
-				term.setCursorPos(11, i)
+				term.setCursorPos((term.getCursorPos()) + 1, i)
 				term.setBackgroundColor(colors[optionsTable.outputs.colors[currentEntry.outputColor]])
 				term.setTextColor(colors[textColors[optionsTable.outputs.colors[currentEntry.outputColor]]])
 				term.write(" "..optionsTable.outputs.colors[currentEntry.outputColor]..string.rep(" ", 10 - string.len(optionsTable.outputs.colors[currentEntry.outputColor])))
-				term.setCursorPos(23, i)
+				term.setCursorPos((term.getCursorPos()) + 1, i)
 				term.setBackgroundColor(colors.black)
 				term.setTextColor(colors.white)
 				term.write(" "..optionsTable.outputs.states[currentEntry.outputState]..string.rep(" ", 6 - string.len(optionsTable.outputs.states[currentEntry.outputState])))
 				if optionsTable.outputs.states[currentEntry.outputState] == "Pulse" then
-					term.setCursorPos(31, i)
-					term.write(" "..currentEntry.pulseDuration..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseDuration))))
-					term.setCursorPos(38, i)
-					term.write(" "..currentEntry.pulseCount..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseCount))))
-					term.setCursorPos(45, i)
-					term.write(" "..currentEntry.pulseDelay..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseDelay))))
+					term.setCursorPos((term.getCursorPos()) + 1, i)
+					term.write(" "..tostring(currentEntry.pulseDuration)..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseDuration))))
+					term.setCursorPos((term.getCursorPos()) + 1, i)
+					term.write(" "..tostring(currentEntry.pulseCount)..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseCount))))
+					term.setCursorPos((term.getCursorPos()) + 1, i)
+					term.write(" "..tostring(currentEntry.pulseDelay)..string.rep(" ", 5 - string.len(tostring(currentEntry.pulseDelay))))
 				end
 			end
 		end
@@ -439,6 +448,117 @@ while true do
 					pInfo.timer = os.startTimer(pInfo.duration)
 				end
 				break
+			end
+		end
+	elseif event[1] == "mouse_click" then
+		if (event[4] + offset - 1) % 2 == 0 then
+			local currentEntry = displayTable[math.floor(i + offset - 1 / 2) + 1]
+			if currentEntry.configEntry <= #configurationTable[currentEntry.configSet].conditions then
+				--is an input
+				if event[3] >= 2 and event[3] <= 13 then
+					--is input type
+					if event[2] == 1 then
+						currentEntry.inputNumber = currentEntry.inputNumber % #optionsTable.inputs + 1
+					elseif event[2] == 2 then
+						currentEntry.inputNumber = currentEntry.inputNumber - 1
+						if currentEntry.inputNumber == 0 then currentEntry.inputNumber = #optionsTable.inputs end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "type", optionsTable.inputs[currentEntry.inputNumber].name)
+				elseif event[3] >= 15 and event[3] <= 23 then
+					--is input state
+					if event[2] == 1 then
+						currentEntry.inputState = currentEntry.inputState % #optionsTable.inputs[currentEntry.inputNumber].states + 1
+					elseif event[2] == 2 then
+						currentEntry.inputState = currentEntry.inputState - 1
+						if currentEntry.inputState == 0 then currentEntry.inputState = #optionsTable.inputs[currentEntry.inputNumber].states end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "state", optionsTable.inputs[currentEntry.inputNumber].states[currentEntry.inputState])
+				elseif currentEntry.inputNumber > 1 and event[3] >= 25 and event[3] <= 34 then
+					--is input location
+					if event[2] == 1 then
+						currentEntry.inputLocation = currentEntry.inputLocation % #optionsTable.inputs[currentEntry.inputNumber].targets + 1
+					elseif event[2] == 2 then
+						currentEntry.inputLocation = currentEntry.inputLocation - 1
+						if currentEntry.inputLocation == 0 then currentEntry.inputLocation = #optionsTable.inputs[currentEntry.inputNumber].targets end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "location", optionsTable.inputs[currentEntry.inputNumber].targets[currentEntry.inputLocation])
+				elseif currentEntry.inputNumber == 1 and event[3] >= 25 and event[3] <= 32 then
+					--is input side for redstone
+					if event[2] == 1 then
+						currentEntry.inputSide = currentEntry.inputSide % #optionsTable.inputs[currentEntry.inputNumber].sides + 1
+					elseif event[2] == 2 then
+						currentEntry.inputSide = currentEntry.inputSide - 1
+						if currentEntry.inputSide == 0 then currentEntry.inputSide = #optionsTable.inputs[currentEntry.inputNumber].sides end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "location", optionsTable.inputs[currentEntry.inputNumber].sides[currentEntry.inputSide].."_"..optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor])
+				elseif currentEntry.inputNumber == 1 and event[3] >= 34 and event[3] <= 44 then
+					--is input color for redstone
+					if event[2] == 1 then
+						currentEntry.inputColor = currentEntry.inputColor % #optionsTable.inputs[currentEntry.inputNumber].colors + 1
+					elseif event[2] == 2 then
+						currentEntry.inputColor = currentEntry.inputColor - 1
+						if currentEntry.inputColor == 0 then currentEntry.inputColor = #optionsTable.inputs[currentEntry.inputNumber].colors end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "location", optionsTable.inputs[currentEntry.inputNumber].sides[currentEntry.inputSide].."_"..optionsTable.inputs[currentEntry.inputNumber].colors[currentEntry.inputColor])
+				end
+			elseif currentEntry.configEntry > #configurationTable[currentEntry.configSet].conditions then
+				local outEntry = currentEntry.configEntry - #configurationTable[currentEntry.configSet].conditions then
+				if event[3] >= 2 and event[3] <= 9 then
+					--output side
+					if event[2] == 1 then
+						currentEntry.outputSide = currentEntry.outputSide % #optionsTable.outputs.sides + 1
+					elseif event[2] == 2 then
+						currentEntry.outputSide = currentEntry.outputSide - 1
+						if currentEntry.outputSide == 0 then currentEntry.outputSide = #optionsTable.outputs.sides end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "side", optionsTable.outputs.sides[currentEntry.outputSide])
+				elseif event[3] >= 11 and event[3] <= 21 then
+					--output color
+					if event[2] == 1 then
+						currentEntry.outputColor = currentEntry.outputColor % #optionsTable.outputs.colors + 1
+					elseif event[2] == 2 then
+						currentEntry.outputColor = currentEntry.outputColor - 1
+						if currentEntry.outputColor == 0 then currentEntry.outputColor = #optionsTable.outputs.colors end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "color", optionsTable.outputs.colors[currentEntry.outputColor])
+				elseif event[3] >= 23 and event[3] <= 29 then
+					--output state
+					if event[2] == 1 then
+						currentEntry.outputState = currentEntry.outputState % #optionsTable.outputs.states + 1
+					elseif event[2] == 2 then
+						currentEntry.outputState = currentEntry.outputState - 1
+						if currentEntry.outputState == 0 then currentEntry.outputState = #optionsTable.outputs.states end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "state", optionsTable.outputs.states[currentEntry.outputState])
+				elseif optionsTable.outputs.states[currentEntry.outputState] == "Pulse" and event[3] >= 31 and event[3] <= 36 then
+					--pulse duration
+					if event[2] == 1 then
+						currentEntry.pulseDuration = currentEntry.pulseDuration + 0.1
+					elseif event[2] == 2 then
+						currentEntry.pulseDuration = currentEntry.pulseDuration - 0.1
+						if currentEntry.pulseDuration < 0 then currentEntry.pulseDuration = 0 end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "duration", currentEntry.pulseDuration)
+				elseif optionsTable.outputs.states[currentEntry.outputState] == "Pulse" and event[3] >= 38 and event[3] <= 43 then
+					--pulse count
+					if event[2] == 1 then
+						if currentEntry.pulseCount == math.huge then currentEntry.pulseCount = 0 end
+						currentEntry.pulseCount = currentEntry.pulseCount + 1
+					elseif event[2] == 2 then
+						currentEntry.pulseCount = currentEntry.pulseCount - 1
+						if currentEntry.pulseCount == 0 then currentEntry.pulseCount = math.huge end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "count", currentEntry.pulseCount)
+				elseif optionsTable.outputs.states[currentEntry.outputState] == "Pulse" and event[3] >= 45 and event[3] <= 50 then
+					--pulse delay
+					if event[2] == 1 then
+						currentEntry.pulseDelay = currentEntry.pulseDelay + 0.1
+					elseif event[2] == 2 then
+						currentEntry.pulseDelay = currentEntry.pulseDelay - 0.1
+						if currentEntry.pulseDelay < 0 then currentEntry.pulseDelay = 0 end
+					end
+					updateConfigEntry(currentEntry.configSet, currentEntry.configEntry, "delay", currentEntry.pulseDelay)
+				end
 			end
 		end
 	end
