@@ -561,5 +561,9 @@ while true do
 				end
 			end
 		end
+	elseif event[1] == "mouse_scroll" then
+		offset = offset + event[2]
+		if offset < 0 then offset = 0 end
+		if math.floor(18 + offset / 2) + 1 then offset = math.max(offset - 1, 0) end
 	end
 end
