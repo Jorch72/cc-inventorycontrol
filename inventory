@@ -130,8 +130,9 @@ if handle then
 			if entryTable then
 				table.insert(configurationTable, entryTable)
 				configSet = configSet + 1
+				entry = 1
 			end
-			entryTable = {conditionType = line, conditions = {}, outputs = {}}
+			entryTable = {conditionType = line, conditions = {}, outputs = {}, lastState = false}
 		elseif string.match(line, "(%a+):") == "input" then
 			local condTable = {}
 			local dispEntry = {entryType = "input", configSet = configSet, configEntry = entry}
@@ -163,7 +164,7 @@ if handle then
 			table.insert(entryTable.conditions, condTable)
 			entry = entry + 1
 		elseif string.match(line, "(%a+):") == "output" then
-			local outTable = {lastState = false}
+			local outTable = {}
 			local dispEntry = {entryType = "output", configSet = configSet, configEntry = entry}
 			outTable.side, outTable.color, outTable.state, outTable.duration, outTable.count, outTable.delay = string.match(line, "%a+:(%a+),(%a+),(%a+),([^,]+),([^,]+),([^,]+)")
 			outTable.duration, outTable.count, outTable.delay = tonumber(outTable.duration), tonumber(outTable.count), tonumber(outTable.delay)
@@ -186,7 +187,7 @@ local testConditions = {
 	Tank = {
 		Full = function(coord)
 			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
-			if tankData.Amount >= tankData.Capacity then
+			if tankData.Tanks[1].Amount >= tankData.Tanks[1].Capacity then
 				return true
 			else
 				return false
@@ -194,7 +195,7 @@ local testConditions = {
 		end,
 		Partial = function(coord)
 			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
-			if tankData.Amount < tankData.Capacity and tankData.Amount > 0 then
+			if tankData.Tanks[1].Amount < tankData.Tanks[1].Capacity and tankData.Tanks[1].Amount > 0 then
 				return true
 			else
 				return false
@@ -202,7 +203,7 @@ local testConditions = {
 		end,
 		Empty = function(coord)
 			local tankData = sensor.call(tankSensor, "getTargetDetails", coord)
-			if tankData.Amount <= 0 then
+			if tankData.Tanks[1].Amount <= 0 then
 				return true
 			else
 				return false
@@ -293,9 +294,9 @@ local testConditions = {
 	},
 }
 
-local function setOutput(side, color, state)
+local function setOutput(side, color, state, changed)
 	if state then
-		outputTable[side][color] = outputTable[side][color] + 1
+		if changed then outputTable[side][color] = outputTable[side][color] + 1 end
 		if color == "redstone" then
 			if not rs.getOutput(side) then
 				rs.setOutput(side, true)
@@ -306,7 +307,7 @@ local function setOutput(side, color, state)
 			end
 		end
 	else
-		outputTable[side][color] = outputTable[side][color] - 1
+		if changed then outputTable[side][color] = outputTable[side][color] - 1 end
 		if outputTable[side][color] == 0 then
 			if color == "redstone" then
 				rs.setOutput(side, false)
@@ -412,7 +413,7 @@ local function draw(offset)
 end
 
 local offset = 0
-local updateTime, updateTimer = 5, os.startTimer(0)
+local updateTime, updateTimer = 0.5, os.startTimer(0)
 
 while true do
 	draw(offset)
@@ -429,22 +430,22 @@ while true do
 				end
 			end
 			local setState = nil
-			if ((eInfo.conditionType == "or" and condTrueCount > 0) or (eInfo.conditionType == "and" and condFalseCount == 0)) and eInfo.lastState == false then
-				--condition is true and needs to be set.
+			local currState = eInfo.lastState
+			if (eInfo.conditionType == "or" and condTrueCount > 0) or (eInfo.conditionType == "and" and condFalseCount == 0) then
+				--condition set is true.
 				setState = true
-			elseif ((eInfo.conditionType == "or" and condTrueCount == 0) or (eInfo.conditionType == "and" and condFalseCount > 0)) and eInfo.lastState == true then
-				--condition is false and needs to be set.
+				eInfo.lastState = true
+			elseif (eInfo.conditionType == "or" and condTrueCount == 0) or (eInfo.conditionType == "and" and condFalseCount > 0) then
+				--condition set is false
 				setState = false
+				eInfo.lastState = false
 			end
-			if setState ~= nil then
-				for oNum, oInfo in pairs(eInfo.outputs) do
-					if oInfo.state ~= "pulse" then
-						setOutput(oInfo.side, oInfo.color, ((oInfo.state == "high") == setState))
-					else
-						setPulsing(oInfo, setState)
-					end
+			for oNum, oInfo in pairs(eInfo.outputs) do
+				if setState ~= currState and oInfo.state == "Pulse" then
+					setPulsing(oInfo, setState)
+				elseif oInfo.state ~= "Pulse" then
+					setOutput(oInfo.side, oInfo.color, ((oInfo.state == "High") == setState), currState ~= setState)
 				end
-				setState = nil
 			end
 		end
 		updateTimer = os.startTimer(updateTime)
